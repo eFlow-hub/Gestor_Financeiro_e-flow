@@ -114,7 +114,60 @@ class SistemaFinanceiro:
                     total += sum(r['valor'] for r in registros)
         return total
 
+# === Login e Cadastro ===
+
+def carregar_usuarios():
+    if os.path.exists("usuarios.json"):
+        with open("usuarios.json", "r") as f:
+            return json.load(f)
+    return {}
+
+def salvar_usuarios(usuarios):
+    with open("usuarios.json", "w") as f:
+        json.dump(usuarios, f, indent=4)
+
+def tela_login():
+    st.title("🔐 Login - Sistema Financeiro")
+
+    aba = st.sidebar.radio("Acesso", ["Login", "Cadastrar"])
+
+    usuarios = carregar_usuarios()
+
+    if aba == "Login":
+        email = st.text_input("Email", key="login_email")
+        senha = st.text_input("Senha", type="password", key="login_senha")
+        if st.button("Entrar"):
+            if email in usuarios and usuarios[email]["senha"] == senha:
+                st.session_state["usuario_logado"] = email
+                st.success(f"Bem-vindo, {email}!")
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
+
+    elif aba == "Cadastrar":
+        email = st.text_input("Email", key="cad_email")
+        senha = st.text_input("Senha", type="password", key="cad_senha")
+        confirmar = st.text_input("Confirmar Senha", type="password", key="cad_confirmar")
+
+        if st.button("Registrar"):
+            if not email.endswith("@e-flow.digital"):
+                st.error("Cadastro permitido apenas para emails @e-flow.digital.")
+            elif email in usuarios:
+                st.warning("Este email já está cadastrado.")
+            elif senha != confirmar:
+                st.error("As senhas não coincidem.")
+            else:
+                usuarios[email] = {"senha": senha}
+                salvar_usuarios(usuarios)
+                st.success("Cadastro realizado com sucesso! Agora você pode fazer login.")
+                st.experimental_rerun()
+
+
 def main():
+    if "usuario_logado" not in st.session_state:
+        tela_login()
+        return
+    
     # Configuração da página
     st.set_page_config(page_title="Sistema Financeiro", layout="wide")
     
@@ -125,7 +178,7 @@ def main():
     with st.sidebar:
         # ======================================================
         # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo = "logo.e-flow/Ícone Color.png" 
+        caminho_logo ="logo.e-flow/Ícone Color.png" 
         # ======================================================
         
         try:
@@ -312,6 +365,7 @@ def main():
                 st.write(f"📅 {lucro['data']} - Lucro: R${lucro['lucro']:,.2f}")
         else:
             st.info("Nenhum cálculo de lucro disponível.")
+
 
 if __name__ == "__main__":
     main()
