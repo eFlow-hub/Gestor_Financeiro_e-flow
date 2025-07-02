@@ -125,7 +125,7 @@ def main():
     with st.sidebar:
         # ======================================================
         # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo = "https://raw.githubusercontent.com/eFlow-hub/Gestor_Financeiro_e-flow/refs/heads/main/I%CC%81cone%20Color.png" 
+        caminho_logo = "logo.e-flow/Ícone Color.png" 
         # ======================================================
         
         try:
