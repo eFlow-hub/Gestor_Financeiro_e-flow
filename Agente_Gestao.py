@@ -3,9 +3,13 @@ import json
 import os
 from datetime import datetime
 from PIL import Image
+import hashlib
+import plotly.express as px
+import pandas as pd
 
 class SistemaFinanceiro:
-    def __init__(self):
+    def __init__(self, usuario):
+        self.usuario = usuario
         self.dados = {
             'faturamentos': [],
             'custos': {'categorias': {}},
@@ -14,12 +18,17 @@ class SistemaFinanceiro:
         self.carregar_dados()
 
     def carregar_dados(self):
-        if os.path.exists('dados_financeiros.json'):
-            with open('dados_financeiros.json', 'r') as f:
+        if not os.path.exists('dados_usuarios'):
+            os.makedirs('dados_usuarios')
+            
+        arquivo_usuario = f'dados_usuarios/{self.usuario}_dados.json'
+        if os.path.exists(arquivo_usuario):
+            with open(arquivo_usuario, 'r') as f:
                 self.dados = json.load(f)
 
     def salvar_dados(self):
-        with open('dados_financeiros.json', 'w') as f:
+        arquivo_usuario = f'dados_usuarios/{self.usuario}_dados.json'
+        with open(arquivo_usuario, 'w') as f:
             json.dump(self.dados, f, indent=4)
 
     def adicionar_faturamento(self, valor, descricao, data=None):
@@ -141,17 +150,24 @@ class SistemaFinanceiro:
                     total += sum(r['valor'] for r in registros)
         return total
 
-# === Login e Cadastro ===
-
 def carregar_usuarios():
-    if os.path.exists("usuarios.json"):
-        with open("usuarios.json", "r") as f:
+    if not os.path.exists('dados_usuarios'):
+        os.makedirs('dados_usuarios')
+        
+    if os.path.exists('dados_usuarios/usuarios.json'):
+        with open('dados_usuarios/usuarios.json', 'r') as f:
             return json.load(f)
     return {}
 
 def salvar_usuarios(usuarios):
-    with open("usuarios.json", "w") as f:
+    if not os.path.exists('dados_usuarios'):
+        os.makedirs('dados_usuarios')
+        
+    with open('dados_usuarios/usuarios.json', 'w') as f:
         json.dump(usuarios, f, indent=4)
+
+def hash_senha(senha):
+    return hashlib.sha256(senha.encode()).hexdigest()
 
 def tela_login():
     st.title("🔐 Login - Sistema Financeiro")
@@ -164,7 +180,7 @@ def tela_login():
         email = st.text_input("Email", key="login_email")
         senha = st.text_input("Senha", type="password", key="login_senha")
         if st.button("Entrar"):
-            if email in usuarios and usuarios[email]["senha"] == senha:
+            if email in usuarios and usuarios[email]["senha"] == hash_senha(senha):
                 st.session_state["usuario_logado"] = email
                 st.success(f"Bem-vindo, {email}!")
                 st.rerun()
@@ -184,11 +200,10 @@ def tela_login():
             elif senha != confirmar:
                 st.error("As senhas não coincidem.")
             else:
-                usuarios[email] = {"senha": senha}
+                usuarios[email] = {"senha": hash_senha(senha)}
                 salvar_usuarios(usuarios)
                 st.success("Cadastro realizado com sucesso! Agora você pode fazer login.")
                 st.experimental_rerun()
-
 
 def main():
     if "usuario_logado" not in st.session_state:
@@ -198,19 +213,15 @@ def main():
     # Configuração da página
     st.set_page_config(page_title="Sistema Financeiro", layout="wide")
     
-    # Cria uma instância do sistema financeiro
-    sistema = SistemaFinanceiro()
+    # Cria uma instância do sistema financeiro para o usuário logado
+    sistema = SistemaFinanceiro(st.session_state["usuario_logado"])
     
     # Sidebar com logo fixa e menu
     with st.sidebar:
-        # ======================================================
-        # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo ="logo.e-flow/Ícone Color.png" 
-        # ======================================================
+        caminho_logo = "logo.png"  # Altere para o caminho da sua logo
         
         try:
             logo = Image.open(caminho_logo)
-            # Tamanho ajustado para 150px (você pode alterar este valor)
             st.image(logo, width=150)
         except:
             st.warning(f"Logo não encontrada em: {caminho_logo}")
@@ -218,10 +229,10 @@ def main():
         st.title("Menu")
         menu = st.radio("Navegação", 
                        ["Dashboard", "Adicionar Faturamento", "Adicionar Custo", 
-                        "Distribuir Custos", "Relatório Completo", "Remover Registros"])
+                        "Distribuir Custos", "Relatório Completo", "Remover Registros", "Análise"])
     
     # Página principal
-    st.title("Sistema Financeiro da Empresa")
+    st.title(f"Sistema Financeiro - {st.session_state['usuario_logado']}")
     
     if menu == "Dashboard":
         st.header("📊 Dashboard Financeiro")
@@ -452,7 +463,163 @@ def main():
                                             st.rerun()
             else:
                 st.info("Nenhum custo registrado para remover.")
+    
+    elif menu == "Análise":
+        st.header("📈 Análise Gráfica")
+        
+        tab1, tab2, tab3 = st.tabs(["Custos por Categoria", "Evolução Mensal", "Comparativo"])
+        
+        with tab1:
+            st.subheader("Distribuição de Custos por Categoria")
+            
+            # Preparar dados para o gráfico de pizza
+            dados_custos = []
+            for categoria, dados in sistema.dados['custos']['categorias'].items():
+                total_categoria = sistema.calcular_total_categoria(categoria)
+                dados_custos.append({
+                    'Categoria': categoria,
+                    'Valor': total_categoria,
+                    'Tipo': 'Custo'
+                })
+            
+            if dados_custos:
+                df_custos = pd.DataFrame(dados_custos)
+                fig = px.pie(
+                    df_custos, 
+                    values='Valor', 
+                    names='Categoria',
+                    title='Distribuição de Custos por Categoria',
+                    hover_data=['Valor'],
+                    labels={'Valor': 'Valor (R$)'}
+                )
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Gráfico de barras horizontal
+                fig2 = px.bar(
+                    df_custos.sort_values(by='Valor', ascending=True),
+                    x='Valor',
+                    y='Categoria',
+                    orientation='h',
+                    title='Custos por Categoria (Ordenado)',
+                    labels={'Valor': 'Valor (R$)', 'Categoria': ''},
+                    color='Valor',
+                    color_continuous_scale='Blues'
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.warning("Nenhum dado de custo disponível para análise.")
 
+        with tab2:
+            st.subheader("Evolução Mensal de Faturamento, Custos e Lucro")
+            
+            # Preparar dados mensais
+            meses = {}
+            for fat in sistema.dados['faturamentos']:
+                data = datetime.strptime(fat['data'], '%Y-%m-%d')
+                mes_ano = f"{data.year}-{data.month:02d}"
+                if mes_ano not in meses:
+                    meses[mes_ano] = {'Faturamento': 0, 'Custos': 0, 'Lucro': 0}
+                meses[mes_ano]['Faturamento'] += fat['valor']
+            
+            for categoria, dados in sistema.dados['custos']['categorias'].items():
+                if 'registros' in dados:
+                    for custo in dados['registros']:
+                        data = datetime.strptime(custo['data'], '%Y-%m-%d')
+                        mes_ano = f"{data.year}-{data.month:02d}"
+                        if mes_ano not in meses:
+                            meses[mes_ano] = {'Faturamento': 0, 'Custos': 0, 'Lucro': 0}
+                        meses[mes_ano]['Custos'] += custo['valor']
+                
+                if 'subcategorias' in dados:
+                    for subcat, registros in dados['subcategorias'].items():
+                        for custo in registros:
+                            data = datetime.strptime(custo['data'], '%Y-%m-%d')
+                            mes_ano = f"{data.year}-{data.month:02d}"
+                            if mes_ano not in meses:
+                                meses[mes_ano] = {'Faturamento': 0, 'Custos': 0, 'Lucro': 0}
+                            meses[mes_ano]['Custos'] += custo['valor']
+            
+            # Calcular lucro por mês
+            for mes in meses:
+                meses[mes]['Lucro'] = meses[mes]['Faturamento'] - meses[mes]['Custos']
+            
+            if meses:
+                df_meses = pd.DataFrame.from_dict(meses, orient='index').reset_index()
+                df_meses = df_meses.rename(columns={'index': 'Mês'})
+                df_meses['Mês'] = pd.to_datetime(df_meses['Mês'])
+                df_meses = df_meses.sort_values('Mês')
+                
+                fig = px.line(
+                    df_meses,
+                    x='Mês',
+                    y=['Faturamento', 'Custos', 'Lucro'],
+                    title='Evolução Mensal',
+                    labels={'value': 'Valor (R$)', 'variable': ''},
+                    markers=True
+                )
+                fig.update_layout(hovermode='x unified')
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Mostrar tabela com os dados
+                st.subheader("Dados Mensais")
+                df_display = df_meses.copy()
+                df_display['Mês'] = df_display['Mês'].dt.strftime('%Y-%m')
+                df_display = df_display.rename(columns={
+                    'Faturamento': 'Faturamento (R$)',
+                    'Custos': 'Custos (R$)',
+                    'Lucro': 'Lucro (R$)'
+                })
+                st.dataframe(df_display.set_index('Mês').style.format("{:,.2f}"))
+            else:
+                st.warning("Nenhum dado disponível para análise temporal.")
+
+        with tab3:
+            st.subheader("Comparativo: Faturamento vs Custos")
+            
+            if sistema.dados['lucros']:
+                # Pegar os últimos 12 meses
+                lucros_recentes = sistema.dados['lucros'][-12:]
+                
+                df_comparativo = pd.DataFrame({
+                    'Data': [datetime.strptime(l['data'], '%Y-%m-%d') for l in lucros_recentes],
+                    'Faturamento': [l['faturamento_total'] for l in lucros_recentes],
+                    'Custos': [l['custos_total'] for l in lucros_recentes],
+                    'Lucro': [l['lucro'] for l in lucros_recentes]
+                })
+                
+                fig = px.bar(
+                    df_comparativo,
+                    x='Data',
+                    y=['Faturamento', 'Custos'],
+                    title='Comparativo: Faturamento vs Custos',
+                    labels={'value': 'Valor (R$)', 'variable': ''},
+                    barmode='group'
+                )
+                fig.add_scatter(
+                    x=df_comparativo['Data'],
+                    y=df_comparativo['Lucro'],
+                    name='Lucro',
+                    mode='lines+markers',
+                    line=dict(color='green', width=2)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Mostrar eficiência (custo/faturamento)
+                df_comparativo['Eficiência'] = df_comparativo['Custos'] / df_comparativo['Faturamento'] * 100
+                fig2 = px.line(
+                    df_comparativo,
+                    x='Data',
+                    y='Eficiência',
+                    title='Percentual de Custos sobre Faturamento',
+                    labels={'Eficiência': 'Custos/Faturamento (%)'},
+                    markers=True
+                )
+                fig2.add_hline(y=100, line_dash="dash", line_color="red", 
+                              annotation_text="Limite de 100%", annotation_position="bottom right")
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.warning("Nenhum cálculo de lucro disponível para comparação.")
 
 if __name__ == "__main__":
     main()
