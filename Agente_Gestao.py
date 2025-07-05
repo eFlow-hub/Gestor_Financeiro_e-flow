@@ -7,7 +7,7 @@ from supabase import create_client, Client
 
 # Configurações do Supabase
 SUPABASE_URL = "https://tdftumtkrbayhazsvoup.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZnR1bXRrcmJheWhhenN2b3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk5MzA3NzksImV4cCI6MjA2NTUwNjc3OX0.rpS-FdQnizLHvXb6OEfgfF5ITc-lXCOT4SkkM_cT754"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZnR1bXRrcmJheWhhenN2b3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTkzMDc3OSwiZXhwIjoyMDY1NTA2Nzc5fQ.PwN3eMnal9O5Xvgy9ZT2epPGHu0c_c4umJovM9fy510"
 
 # Inicializar cliente Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
