@@ -218,7 +218,7 @@ def main():
     
     # Sidebar com logo fixa e menu
     with st.sidebar:
-        caminho_logo = "logo.png"  # Altere para o caminho da sua logo
+        caminho_logo = "logo.e-flow/Ícone Color.png"  # Altere para o caminho da sua logo
         
         try:
             logo = Image.open(caminho_logo)
