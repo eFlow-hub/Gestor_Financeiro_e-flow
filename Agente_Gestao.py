@@ -3,14 +3,26 @@ import json
 import os
 from datetime import datetime
 from PIL import Image
-from supabase import create_client, Client
 
-# Configurações do Supabase
-SUPABASE_URL = "https://tdftumtkrbayhazsvoup.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZnR1bXRrcmJheWhhenN2b3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTkzMDc3OSwiZXhwIjoyMDY1NTA2Nzc5fQ.PwN3eMnal9O5Xvgy9ZT2epPGHu0c_c4umJovM9fy510"
+# Verifica e instala os pacotes necessários se não estiverem disponíveis
+try:
+    from supabase import create_client, Client
+except ImportError:
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "supabase"])
+    from supabase import create_client, Client
 
-# Inicializar cliente Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Configurações do Supabase - SUBSTITUA COM SUAS CREDENCIAIS
+SUPABASE_URL = "https://tdftumtkrbayhazsvoup.supabase.co"  # Substitua pela sua URL
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZnR1bXRrcmJheWhhenN2b3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTkzMDc3OSwiZXhwIjoyMDY1NTA2Nzc5fQ.PwN3eMnal9O5Xvgy9ZT2epPGHu0c_c4umJovM9fy510"      # Substitua pela sua chave
+
+# Inicializar cliente Supabase com tratamento de erro
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    st.error(f"Erro ao conectar ao Supabase: {str(e)}")
+    supabase = None
 
 class SistemaFinanceiro:
     def __init__(self):
@@ -149,10 +161,14 @@ class SistemaFinanceiro:
                     total += sum(r['valor'] for r in registros)
         return total
 
-# === Login e Cadastro com Supabase ===
+# === Funções de Autenticação com Supabase ===
 
 def verificar_usuario_existe(email: str) -> bool:
     """Verifica se um usuário já existe no Supabase"""
+    if not supabase:
+        st.error("Conexão com Supabase não estabelecida")
+        return False
+    
     try:
         response = supabase.from_('usuarios').select('email').eq('email', email).execute()
         return len(response.data) > 0
@@ -162,6 +178,10 @@ def verificar_usuario_existe(email: str) -> bool:
 
 def criar_usuario(email: str, senha: str) -> bool:
     """Cria um novo usuário no Supabase"""
+    if not supabase:
+        st.error("Conexão com Supabase não estabelecida")
+        return False
+    
     try:
         data = {
             'email': email,
@@ -169,13 +189,17 @@ def criar_usuario(email: str, senha: str) -> bool:
             'dominio': email.split('@')[-1]
         }
         response = supabase.from_('usuarios').insert(data).execute()
-        return True
+        return True if response.data else False
     except Exception as e:
         st.error(f"Erro ao criar usuário: {str(e)}")
         return False
 
 def verificar_credenciais(email: str, senha: str) -> bool:
     """Verifica se as credenciais do usuário estão corretas"""
+    if not supabase:
+        st.error("Conexão com Supabase não estabelecida")
+        return False
+    
     try:
         response = supabase.from_('usuarios').select('senha').eq('email', email).execute()
         if len(response.data) == 1:
@@ -231,14 +255,11 @@ def main():
     
     # Sidebar com logo fixa e menu
     with st.sidebar:
-        # ======================================================
         # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo ="logo.e-flow/Ícone Color.png" 
-        # ======================================================
+        caminho_logo = "logo.png"  # Substitua pelo caminho correto
         
         try:
             logo = Image.open(caminho_logo)
-            # Tamanho ajustado para 150px (você pode alterar este valor)
             st.image(logo, width=150)
         except:
             st.warning(f"Logo não encontrada em: {caminho_logo}")
@@ -305,7 +326,7 @@ def main():
             if st.form_submit_button("Adicionar Faturamento"):
                 sistema.adicionar_faturamento(valor, descricao, str(data))
                 st.success("Faturamento adicionado com sucesso!")
-    
+
     elif menu == "Adicionar Custo":
         st.header("💸 Adicionar Custo")
         
@@ -480,7 +501,6 @@ def main():
                                             st.rerun()
             else:
                 st.info("Nenhum custo registrado para remover.")
-
 
 if __name__ == "__main__":
     main()
