@@ -4,26 +4,6 @@ import os
 from datetime import datetime
 from PIL import Image
 
-# Verifica e instala os pacotes necessários se não estiverem disponíveis
-try:
-    from supabase import create_client, Client
-except ImportError:
-    import subprocess
-    import sys
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "supabase"])
-    from supabase import create_client, Client
-
-# Configurações do Supabase - SUBSTITUA COM SUAS CREDENCIAIS
-SUPABASE_URL = "https://tdftumtkrbayhazsvoup.supabase.co"  # Substitua pela sua URL
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZnR1bXRrcmJheWhhenN2b3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTkzMDc3OSwiZXhwIjoyMDY1NTA2Nzc5fQ.PwN3eMnal9O5Xvgy9ZT2epPGHu0c_c4umJovM9fy510"      # Substitua pela sua chave
-
-# Inicializar cliente Supabase com tratamento de erro
-try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
-    st.error(f"Erro ao conectar ao Supabase: {str(e)}")
-    supabase = None
-
 class SistemaFinanceiro:
     def __init__(self):
         self.dados = {
@@ -161,64 +141,30 @@ class SistemaFinanceiro:
                     total += sum(r['valor'] for r in registros)
         return total
 
-# === Funções de Autenticação com Supabase ===
+# === Login e Cadastro ===
 
-def verificar_usuario_existe(email: str) -> bool:
-    """Verifica se um usuário já existe no Supabase"""
-    if not supabase:
-        st.error("Conexão com Supabase não estabelecida")
-        return False
-    
-    try:
-        response = supabase.from_('usuarios').select('email').eq('email', email).execute()
-        return len(response.data) > 0
-    except Exception as e:
-        st.error(f"Erro ao verificar usuário: {str(e)}")
-        return False
+def carregar_usuarios():
+    if os.path.exists("usuarios.json"):
+        with open("usuarios.json", "r") as f:
+            return json.load(f)
+    return {}
 
-def criar_usuario(email: str, senha: str) -> bool:
-    """Cria um novo usuário no Supabase"""
-    if not supabase:
-        st.error("Conexão com Supabase não estabelecida")
-        return False
-    
-    try:
-        data = {
-            'email': email,
-            'senha': senha,
-            'dominio': email.split('@')[-1]
-        }
-        response = supabase.from_('usuarios').insert(data).execute()
-        return True if response.data else False
-    except Exception as e:
-        st.error(f"Erro ao criar usuário: {str(e)}")
-        return False
-
-def verificar_credenciais(email: str, senha: str) -> bool:
-    """Verifica se as credenciais do usuário estão corretas"""
-    if not supabase:
-        st.error("Conexão com Supabase não estabelecida")
-        return False
-    
-    try:
-        response = supabase.from_('usuarios').select('senha').eq('email', email).execute()
-        if len(response.data) == 1:
-            return response.data[0]['senha'] == senha
-        return False
-    except Exception as e:
-        st.error(f"Erro ao verificar credenciais: {str(e)}")
-        return False
+def salvar_usuarios(usuarios):
+    with open("usuarios.json", "w") as f:
+        json.dump(usuarios, f, indent=4)
 
 def tela_login():
     st.title("🔐 Login - Sistema Financeiro")
 
     aba = st.sidebar.radio("Acesso", ["Login", "Cadastrar"])
 
+    usuarios = carregar_usuarios()
+
     if aba == "Login":
         email = st.text_input("Email", key="login_email")
         senha = st.text_input("Senha", type="password", key="login_senha")
         if st.button("Entrar"):
-            if verificar_credenciais(email, senha):
+            if email in usuarios and usuarios[email]["senha"] == senha:
                 st.session_state["usuario_logado"] = email
                 st.success(f"Bem-vindo, {email}!")
                 st.rerun()
@@ -233,14 +179,16 @@ def tela_login():
         if st.button("Registrar"):
             if not email.endswith("@e-flow.digital"):
                 st.error("Cadastro permitido apenas para emails @e-flow.digital.")
-            elif verificar_usuario_existe(email):
+            elif email in usuarios:
                 st.warning("Este email já está cadastrado.")
             elif senha != confirmar:
                 st.error("As senhas não coincidem.")
             else:
-                if criar_usuario(email, senha):
-                    st.success("Cadastro realizado com sucesso! Agora você pode fazer login.")
-                    st.experimental_rerun()
+                usuarios[email] = {"senha": senha}
+                salvar_usuarios(usuarios)
+                st.success("Cadastro realizado com sucesso! Agora você pode fazer login.")
+                st.experimental_rerun()
+
 
 def main():
     if "usuario_logado" not in st.session_state:
@@ -255,11 +203,14 @@ def main():
     
     # Sidebar com logo fixa e menu
     with st.sidebar:
+        # ======================================================
         # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo = "logo.png"  # Substitua pelo caminho correto
+        caminho_logo ="C:\\Users\\shilo\Downloads\\e-Flow\\e-Flow\\Ícone Color.png" 
+        # ======================================================
         
         try:
             logo = Image.open(caminho_logo)
+            # Tamanho ajustado para 150px (você pode alterar este valor)
             st.image(logo, width=150)
         except:
             st.warning(f"Logo não encontrada em: {caminho_logo}")
@@ -326,7 +277,7 @@ def main():
             if st.form_submit_button("Adicionar Faturamento"):
                 sistema.adicionar_faturamento(valor, descricao, str(data))
                 st.success("Faturamento adicionado com sucesso!")
-
+    
     elif menu == "Adicionar Custo":
         st.header("💸 Adicionar Custo")
         
@@ -501,6 +452,7 @@ def main():
                                             st.rerun()
             else:
                 st.info("Nenhum custo registrado para remover.")
+
 
 if __name__ == "__main__":
     main()
