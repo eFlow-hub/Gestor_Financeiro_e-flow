@@ -205,7 +205,7 @@ def main():
     with st.sidebar:
         # ======================================================
         # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo ="C:\\Users\\shilo\Downloads\\e-Flow\\e-Flow\\Ícone Color.png" 
+        caminho_logo ="logo.e-flow/Ícone Color.png" 
         # ======================================================
         
         try:
