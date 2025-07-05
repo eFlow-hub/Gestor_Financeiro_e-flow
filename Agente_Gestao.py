@@ -34,6 +34,14 @@ class SistemaFinanceiro:
         self.salvar_dados()
         self.calcular_lucros()
 
+    def remover_faturamento(self, index):
+        if 0 <= index < len(self.dados['faturamentos']):
+            removed = self.dados['faturamentos'].pop(index)
+            self.salvar_dados()
+            self.calcular_lucros()
+            return removed
+        return None
+
     def adicionar_custo(self, categoria, valor, descricao, data=None, subcategoria=None):
         if data is None:
             data = datetime.now().strftime('%Y-%m-%d')
@@ -66,6 +74,25 @@ class SistemaFinanceiro:
         
         self.salvar_dados()
         self.calcular_lucros()
+
+    def remover_custo(self, categoria, index, subcategoria=None):
+        if categoria in self.dados['custos']['categorias']:
+            if subcategoria:
+                if 'subcategorias' in self.dados['custos']['categorias'][categoria] and \
+                   subcategoria in self.dados['custos']['categorias'][categoria]['subcategorias']:
+                    if 0 <= index < len(self.dados['custos']['categorias'][categoria]['subcategorias'][subcategoria]):
+                        removed = self.dados['custos']['categorias'][categoria]['subcategorias'][subcategoria].pop(index)
+                        self.salvar_dados()
+                        self.calcular_lucros()
+                        return removed
+            else:
+                if 'registros' in self.dados['custos']['categorias'][categoria]:
+                    if 0 <= index < len(self.dados['custos']['categorias'][categoria]['registros']):
+                        removed = self.dados['custos']['categorias'][categoria]['registros'].pop(index)
+                        self.salvar_dados()
+                        self.calcular_lucros()
+                        return removed
+        return None
 
     def calcular_lucros(self):
         total_faturamento = sum(f['valor'] for f in self.dados['faturamentos'])
@@ -178,7 +205,7 @@ def main():
     with st.sidebar:
         # ======================================================
         # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo ="logo.e-flow/Ícone Color.png" 
+        caminho_logo ="C:\\Users\\shilo\Downloads\\e-Flow\\e-Flow\\Ícone Color.png" 
         # ======================================================
         
         try:
@@ -191,7 +218,7 @@ def main():
         st.title("Menu")
         menu = st.radio("Navegação", 
                        ["Dashboard", "Adicionar Faturamento", "Adicionar Custo", 
-                        "Distribuir Custos", "Relatório Completo"])
+                        "Distribuir Custos", "Relatório Completo", "Remover Registros"])
     
     # Página principal
     st.title("Sistema Financeiro da Empresa")
@@ -365,6 +392,66 @@ def main():
                 st.write(f"📅 {lucro['data']} - Lucro: R${lucro['lucro']:,.2f}")
         else:
             st.info("Nenhum cálculo de lucro disponível.")
+    
+    elif menu == "Remover Registros":
+        st.header("🗑️ Remover Registros")
+        
+        tab1, tab2 = st.tabs(["Remover Faturamentos", "Remover Custos"])
+        
+        with tab1:
+            st.subheader("Remover Faturamentos")
+            if sistema.dados['faturamentos']:
+                st.write("Selecione o faturamento para remover:")
+                for i, fat in enumerate(sistema.dados['faturamentos']):
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.write(f"📅 {fat['data']} - {fat['descricao']}: R${fat['valor']:,.2f}")
+                    with col2:
+                        if st.button(f"Remover #{i+1}", key=f"rem_fat_{i}"):
+                            removed = sistema.remover_faturamento(i)
+                            if removed:
+                                st.success(f"Faturamento removido: {removed['descricao']} - R${removed['valor']:,.2f}")
+                                st.rerun()
+            else:
+                st.info("Nenhum faturamento registrado para remover.")
+        
+        with tab2:
+            st.subheader("Remover Custos")
+            if sistema.dados['custos']['categorias']:
+                categorias = list(sistema.dados['custos']['categorias'].keys())
+                categoria_selecionada = st.selectbox("Selecione a categoria", categorias)
+                
+                dados_categoria = sistema.dados['custos']['categorias'][categoria_selecionada]
+                
+                if 'registros' in dados_categoria and dados_categoria['registros']:
+                    st.write("Custos diretos:")
+                    for i, custo in enumerate(dados_categoria['registros']):
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            st.write(f"📅 {custo['data']} - {custo['descricao']}: R${custo['valor']:,.2f}")
+                        with col2:
+                            if st.button(f"Remover #{i+1}", key=f"rem_cat_{categoria_selecionada}_{i}"):
+                                removed = sistema.remover_custo(categoria_selecionada, i)
+                                if removed:
+                                    st.success(f"Custo removido: {removed['descricao']} - R${removed['valor']:,.2f}")
+                                    st.rerun()
+                
+                if 'subcategorias' in dados_categoria and dados_categoria['subcategorias']:
+                    st.write("Subcategorias:")
+                    for subcat, registros in dados_categoria['subcategorias'].items():
+                        with st.expander(f"Subcategoria: {subcat}"):
+                            for i, custo in enumerate(registros):
+                                col1, col2 = st.columns([4, 1])
+                                with col1:
+                                    st.write(f"📅 {custo['data']} - {custo['descricao']}: R${custo['valor']:,.2f}")
+                                with col2:
+                                    if st.button(f"Remover #{i+1}", key=f"rem_sub_{categoria_selecionada}_{subcat}_{i}"):
+                                        removed = sistema.remover_custo(categoria_selecionada, i, subcat)
+                                        if removed:
+                                            st.success(f"Custo removido: {removed['descricao']} - R${removed['valor']:,.2f}")
+                                            st.rerun()
+            else:
+                st.info("Nenhum custo registrado para remover.")
 
 
 if __name__ == "__main__":
