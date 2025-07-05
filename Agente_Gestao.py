@@ -3,6 +3,14 @@ import json
 import os
 from datetime import datetime
 from PIL import Image
+from supabase import create_client, Client
+
+# Configurações do Supabase
+SUPABASE_URL = "https://tdftumtkrbayhazsvoup.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZnR1bXRrcmJheWhhenN2b3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk5MzA3NzksImV4cCI6MjA2NTUwNjc3OX0.rpS-FdQnizLHvXb6OEfgfF5ITc-lXCOT4SkkM_cT754"
+
+# Inicializar cliente Supabase
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 class SistemaFinanceiro:
     def __init__(self):
@@ -141,30 +149,52 @@ class SistemaFinanceiro:
                     total += sum(r['valor'] for r in registros)
         return total
 
-# === Login e Cadastro ===
+# === Login e Cadastro com Supabase ===
 
-def carregar_usuarios():
-    if os.path.exists("usuarios.json"):
-        with open("usuarios.json", "r") as f:
-            return json.load(f)
-    return {}
+def verificar_usuario_existe(email: str) -> bool:
+    """Verifica se um usuário já existe no Supabase"""
+    try:
+        response = supabase.from_('usuarios').select('email').eq('email', email).execute()
+        return len(response.data) > 0
+    except Exception as e:
+        st.error(f"Erro ao verificar usuário: {str(e)}")
+        return False
 
-def salvar_usuarios(usuarios):
-    with open("usuarios.json", "w") as f:
-        json.dump(usuarios, f, indent=4)
+def criar_usuario(email: str, senha: str) -> bool:
+    """Cria um novo usuário no Supabase"""
+    try:
+        data = {
+            'email': email,
+            'senha': senha,
+            'dominio': email.split('@')[-1]
+        }
+        response = supabase.from_('usuarios').insert(data).execute()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao criar usuário: {str(e)}")
+        return False
+
+def verificar_credenciais(email: str, senha: str) -> bool:
+    """Verifica se as credenciais do usuário estão corretas"""
+    try:
+        response = supabase.from_('usuarios').select('senha').eq('email', email).execute()
+        if len(response.data) == 1:
+            return response.data[0]['senha'] == senha
+        return False
+    except Exception as e:
+        st.error(f"Erro ao verificar credenciais: {str(e)}")
+        return False
 
 def tela_login():
     st.title("🔐 Login - Sistema Financeiro")
 
     aba = st.sidebar.radio("Acesso", ["Login", "Cadastrar"])
 
-    usuarios = carregar_usuarios()
-
     if aba == "Login":
         email = st.text_input("Email", key="login_email")
         senha = st.text_input("Senha", type="password", key="login_senha")
         if st.button("Entrar"):
-            if email in usuarios and usuarios[email]["senha"] == senha:
+            if verificar_credenciais(email, senha):
                 st.session_state["usuario_logado"] = email
                 st.success(f"Bem-vindo, {email}!")
                 st.rerun()
@@ -179,16 +209,14 @@ def tela_login():
         if st.button("Registrar"):
             if not email.endswith("@e-flow.digital"):
                 st.error("Cadastro permitido apenas para emails @e-flow.digital.")
-            elif email in usuarios:
+            elif verificar_usuario_existe(email):
                 st.warning("Este email já está cadastrado.")
             elif senha != confirmar:
                 st.error("As senhas não coincidem.")
             else:
-                usuarios[email] = {"senha": senha}
-                salvar_usuarios(usuarios)
-                st.success("Cadastro realizado com sucesso! Agora você pode fazer login.")
-                st.experimental_rerun()
-
+                if criar_usuario(email, senha):
+                    st.success("Cadastro realizado com sucesso! Agora você pode fazer login.")
+                    st.experimental_rerun()
 
 def main():
     if "usuario_logado" not in st.session_state:
@@ -205,7 +233,7 @@ def main():
     with st.sidebar:
         # ======================================================
         # INSIRA O CAMINHO DA SUA LOGO AQUI (ex: "assets/logo.png")
-        caminho_logo ="logo.e-flow/Ícone Color.png" 
+        caminho_logo ="C:\\Users\\shilo\Downloads\\e-Flow\\e-Flow\\Ícone Color.png" 
         # ======================================================
         
         try:
